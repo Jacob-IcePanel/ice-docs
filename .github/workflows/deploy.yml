@@ -1,0 +1,35 @@
+name: Deploy
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - if: github.ref == 'refs/heads/main'
+      run: |
+        echo "MIXPANEL_TOKEN=${{ secrets.MIXPANEL_TOKEN }}" >> $GITHUB_ENV
+        echo "NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}" >> $GITHUB_ENV
+    - if: github.ref != 'refs/heads/main'
+      run: |
+        echo "MIXPANEL_TOKEN=${{ secrets.MIXPANEL_STAGING_TOKEN }}" >> $GITHUB_ENV
+        echo "NETLIFY_SITE_ID=${{ secrets.NETLIFY_STAGING_SITE_ID }}" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 12
+    - uses: actions/cache@v2
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+    - run: yarn install --frozen-lockfile
+    - run: yarn build
+    - uses: netlify/actions/cli@master
+      with:
+        args: deploy --dir build --prod
+      env:
+        NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
